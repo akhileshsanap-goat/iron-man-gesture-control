@@ -1,0 +1,95 @@
+import time
+
+
+class GestureController:
+    def __init__(self, screen_width, screen_height):
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        self.last_click_time = 0
+        self.last_scroll_time = 0
+        self.last_gesture = "idle"
+
+    def _get_finger_state(self, landmarks, tip_index, pip_index):
+        tip = landmarks[tip_index]
+        pip = landmarks[pip_index]
+        return tip[1] < pip[1]
+
+    def _distance(self, a, b):
+        return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+
+    def _detect_hand(self, landmarks):
+        if not landmarks:
+            return {"gesture": "idle", "pointer": None}
+
+        hand = landmarks[0]
+        wrist = hand[0]
+        index_tip = hand[8]
+        middle_tip = hand[12]
+        ring_tip = hand[16]
+        pinky_tip = hand[20]
+        thumb_tip = hand[4]
+        index_pip = hand[6]
+        middle_pip = hand[10]
+        ring_pip = hand[14]
+        pinky_pip = hand[18]
+
+        finger_states = {
+            "thumb": self._get_finger_state(hand, 4, 2),
+            "index": self._get_finger_state(hand, 8, 6),
+            "middle": self._get_finger_state(hand, 12, 10),
+            "ring": self._get_finger_state(hand, 16, 14),
+            "pinky": self._get_finger_state(hand, 20, 18),
+        }
+
+        finger_count = sum(1 for state in finger_states.values() if state)
+
+        pointer = (index_tip[0], index_tip[1])
+
+        # Pointer gesture: index finger up, others folded
+        if finger_states["index"] and not finger_states["middle"] and not finger_states["ring"] and not finger_states["pinky"]:
+            return {
+                "gesture": "pointer",
+                "pointer": pointer,
+                "finger_count": finger_count,
+            }
+
+        # Click / grab: fist closed
+        if not any(finger_states.values()):
+            return {
+                "gesture": "fist",
+                "pointer": pointer,
+                "finger_count": finger_count,
+            }
+
+        # Open palm: all fingers extended
+        if finger_count >= 4:
+            return {
+                "gesture": "open_palm",
+                "pointer": pointer,
+                "finger_count": finger_count,
+            }
+
+        # Pinch = thumb + index close together
+        if finger_states["thumb"] and finger_states["index"]:
+            pinch_distance = self._distance(thumb_tip, index_tip)
+            if pinch_distance < 40:
+                return {
+                    "gesture": "pinch",
+                    "pointer": pointer,
+                    "finger_count": finger_count,
+                }
+
+        return {"gesture": "idle", "pointer": pointer, "finger_count": finger_count}
+
+    def update(self, frame, hand_landmarks):
+        action = self._detect_hand(hand_landmarks)
+        self.last_gesture = action["gesture"]
+        return action
+
+    def map_to_screen(self, point):
+        if point is None:
+            return None
+        x, y = point
+        screen_x = min(max(x, 0), self.screen_width - 1)
+        screen_y = min(max(y, 0), self.screen_height - 1)
+        return int(screen_x), int(screen_y)

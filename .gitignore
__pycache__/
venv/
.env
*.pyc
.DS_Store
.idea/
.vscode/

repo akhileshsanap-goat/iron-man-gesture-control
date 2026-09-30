@@ -1,0 +1,94 @@
+import time
+
+import cv2
+import pyautogui
+
+from config import CAMERA_INDEX, FRAME_WIDTH, FRAME_HEIGHT, WINDOW_NAME, CLICK_COOLDOWN
+from gesture_controller import GestureController
+from hand_tracker import HandTracker
+from ui_overlay import draw_hud
+
+
+pyautogui.FAILSAFE = False
+
+
+def main():
+    screen_width, screen_height = pyautogui.size()
+    controller = GestureController(screen_width, screen_height)
+    tracker = HandTracker()
+
+    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+
+    if not cap.isOpened():
+        raise RuntimeError("Could not access webcam. Please check that it is connected and available.")
+
+    last_frame_time = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame = cv2.flip(frame, 1)
+        annotated, hand_landmarks = tracker.process_frame(frame)
+        action = controller.update(frame, hand_landmarks)
+
+        pointer = action.get("pointer")
+        if pointer is not None:
+            mapped_pointer = controller.map_to_screen((pointer[0], pointer[1]))
+            if mapped_pointer is not None:
+                x, y = mapped_pointer
+                screen_x = int((x / FRAME_WIDTH) * screen_width)
+                screen_y = int((y / FRAME_HEIGHT) * screen_height)
+                pyautogui.moveTo(screen_x, screen_y, duration=0.02)
+
+        gesture = action.get("gesture", "idle")
+
+        if gesture == "fist":
+            now = time.time()
+            if now - controller.last_click_time > CLICK_COOLDOWN:
+                pyautogui.click()
+                controller.last_click_time = now
+
+        elif gesture == "open_palm":
+            now = time.time()
+            if now - controller.last_click_time > CLICK_COOLDOWN:
+                pyautogui.doubleClick()
+                controller.last_click_time = now
+
+        elif gesture == "pinch":
+            now = time.time()
+            if now - controller.last_scroll_time > 0.3:
+                pyautogui.scroll(-30)
+                controller.last_scroll_time = now
+
+        annotated = draw_hud(annotated, gesture, pointer)
+
+        # FPS display
+        current_time = time.time()
+        fps = 1 / max((current_time - last_frame_time), 0.0001)
+        last_frame_time = current_time
+        cv2.putText(
+            annotated,
+            f"FPS: {int(fps)}",
+            (width := annotated.shape[1] - 130, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
+            2,
+        )
+
+        cv2.imshow(WINDOW_NAME, annotated)
+
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    tracker.close()
+
+
+if __name__ == "__main__":
+    main()

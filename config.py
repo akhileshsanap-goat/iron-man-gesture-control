@@ -1,0 +1,20 @@
+# Camera and display settings
+CAMERA_INDEX = 0
+WINDOW_NAME = "Iron Man Gesture Control"
+FRAME_WIDTH = 1280
+FRAME_HEIGHT = 720
+
+# Tracking settings
+MAX_HANDS = 1
+DETECTION_CONFIDENCE = 0.7
+TRACKING_CONFIDENCE = 0.5
+
+# Mouse / control behavior
+MOUSE_SENSITIVITY_X = 1.35
+MOUSE_SENSITIVITY_Y = 1.35
+CLICK_COOLDOWN = 0.45
+SCROLL_SENSITIVITY = 10
+
+# HUD and control tuning
+HUD_FONT_SCALE = 0.8
+HUD_COLOR = (0, 255, 255)
