@@ -13,28 +13,28 @@ class HandTracker:
         self.mp_draw = mp.solutions.drawing_utils
 
     def process_frame(self, frame):
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(rgb)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.hands.process(rgb_frame)
 
         annotated = frame.copy()
         hand_landmarks = []
 
         if results.multi_hand_landmarks:
-            for hand in results.multi_hand_landmarks:
+            for hand_landmarks_obj in results.multi_hand_landmarks:
                 self.mp_draw.draw_landmarks(
                     annotated,
-                    hand,
+                    hand_landmarks_obj,
                     self.mp_hands.HAND_CONNECTIONS,
                     self.mp_draw.DrawingSpec(color=(245, 117, 66), thickness=2, circle_radius=4),
                     self.mp_draw.DrawingSpec(color=(245, 66, 230), thickness=2, circle_radius=2),
                 )
 
-                lm_list = []
-                for lm in hand.landmark:
-                    x = int(lm.x * frame.shape[1])
-                    y = int(lm.y * frame.shape[0])
-                    lm_list.append((x, y))
-                hand_landmarks.append(lm_list)
+                landmarks = []
+                for landmark in hand_landmarks_obj.landmark:
+                    x = int(landmark.x * frame.shape[1])
+                    y = int(landmark.y * frame.shape[0])
+                    landmarks.append((x, y))
+                hand_landmarks.append(landmarks)
 
         return annotated, hand_landmarks
 
